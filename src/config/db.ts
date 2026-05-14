@@ -26,12 +26,28 @@ class Database {
 
     try {
       const uri = process.env.DATABASE_URL!
-      await mongoose.connect(uri);
+      await mongoose.connect(uri, {
+        serverSelectionTimeoutMS: 5000,
+      });
       this.isConnected = true;
       console.log('🔥 Successfully connected to MongoDB');
-    } catch (error) {
-      console.error('❌ MongoDB connection error:', error);
-      process.exit(1);
+    } catch (error: any) {
+      console.error('\n❌ MongoDB connection error:', error.message);
+      
+      if (error.message && error.message.includes('SSL alert number 80')) {
+         console.warn('\n=========================================');
+         console.warn('⚠️  MONGODB ATLAS IP WHITELIST ERROR!   ⚠️');
+         console.warn('=========================================');
+         console.warn('This SSL/TLS alert 80 usually means your current wifi/internet IP address is NOT whitelisted in your MongoDB Atlas Dashboard.');
+         console.warn('-> Go to https://cloud.mongodb.com');
+         console.warn('-> Select "Network Access" on the left sidebar');
+         console.warn('-> Click "ADD IP ADDRESS" -> "ADD CURRENT IP ADDRESS" -> Confirm.');
+         console.warn('-> Wait 1-2 minutes and restart this server.');
+         console.warn('=========================================\n');
+      }
+
+      console.log('⚠️  Server will start in offline mode due to this error.');
+      // Do NOT process.exit(1) so the express API still starts
     }
   }
 

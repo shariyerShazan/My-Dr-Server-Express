@@ -15,6 +15,9 @@ import { FinanceRoutes } from "./finance/finance.route.js";
 import { PrescriptionRoutes } from "./prescription/prescription.route.js";
 import { ReportRoutes } from "./report/report.route.js";
 import { TelemedicineRoutes } from "./telemedicine/telemedicine.route.js";
+import { PaymentRoutes } from "./payment/payment.route.js";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger.js";
 
 class App {
   public app: Application;
@@ -22,7 +25,7 @@ class App {
 
   constructor() {
     this.app = express();
-    this.port = parseInt(process.env.PORT || "5000", 10);
+    this.port = parseInt(process.env.PORT || "5555", 10);
 
     this.connectDatabase();
     this.initializeMiddleware();
@@ -35,9 +38,31 @@ class App {
   }
 
   private initializeMiddleware(): void {
-    this.app.use(cors());
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(cors(
+      {
+        origin: "http://localhost:5173",
+        credentials: true
+        }
+    ));
+    // Global body parsers - Skip for Stripe webhook to allow raw body parsing
+    this.app.use((req, res, next) => {
+      if (req.originalUrl === "/api/payments/webhook") {
+        next();
+      } else {
+        express.json()(req, res, next);
+      }
+    });
+
+    this.app.use((req, res, next) => {
+      if (req.originalUrl === "/api/payments/webhook") {
+        next();
+      } else {
+        express.urlencoded({ extended: true })(req, res, next);
+      }
+    });
+    
+    // Swagger initialization
+    this.app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
   }
 
   private initializeRoutes(): void {
@@ -51,6 +76,7 @@ class App {
     const prescriptionRoutes = new PrescriptionRoutes();
     const reportRoutes = new ReportRoutes();
     const telemedicineRoutes = new TelemedicineRoutes();
+    const paymentRoutes = new PaymentRoutes();
     
     // API Routes
     this.app.use("/api/auth", authRoutes.router);
@@ -63,6 +89,7 @@ class App {
     this.app.use("/api/prescriptions", prescriptionRoutes.router);
     this.app.use("/api/reports", reportRoutes.router);
     this.app.use("/api/telemedicine", telemedicineRoutes.router);
+    this.app.use("/api/payments", paymentRoutes.router);
 
     // Default route
     this.app.get("/", (req: Request, res: Response) => {

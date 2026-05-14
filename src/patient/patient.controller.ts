@@ -23,4 +23,21 @@ export class PatientController {
       next(error);
     }
   }
+
+  public async getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, message: "Unauthorized" });
+        return;
+      }
+      const patient = await Patient.findOne({ user: req.userId } as any).populate("user");
+      if (!patient) {
+        res.status(404).json({ success: false, message: "Patient profile not found" });
+        return;
+      }
+      res.status(200).json({ success: true, data: patient });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

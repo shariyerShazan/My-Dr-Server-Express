@@ -13,7 +13,55 @@ export class UserRoutes {
   }
 
   private initializeRoutes(): void {
-    // Note: To pass req context properly, we use arrow functions or .bind()
+    /**
+     * @openapi
+     * /api/users/me:
+     *   get:
+     *     tags: [Users]
+     *     summary: Get current authenticated user
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       200:
+     *         description: Current user profile
+     * /api/users:
+     *   get:
+     *     tags: [Users]
+     *     summary: Get all users
+     *     security:
+     *       - bearerAuth: []
+     *   post:
+     *     tags: [Users]
+     *     summary: Create a user
+     * /api/users/{id}:
+     *   get:
+     *     tags: [Users]
+     *     summary: Get a user by ID
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *   put:
+     *     tags: [Users]
+     *     summary: Update a user
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *   delete:
+     *     tags: [Users]
+     *     summary: Delete a user
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     */
     this.router.get("/me", authMiddleware, this.userController.getMe);
     this.router.get("/", authMiddleware, this.userController.getUsers);
     this.router.get("/:id", authMiddleware, this.userController.getUserById);

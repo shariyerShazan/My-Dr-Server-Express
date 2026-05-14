@@ -26,6 +26,8 @@ export interface IAppointment extends Document {
   type: AppointmentType;
   symptoms: string;
   notes?: string;
+  paymentStatus: "PENDING" | "PAID" | "FAILED";
+  stripeSessionId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,7 +42,9 @@ const AppointmentSchema: Schema = new Schema(
     status: { type: String, enum: Object.values(AppointmentStatus), default: AppointmentStatus.PENDING },
     type: { type: String, enum: Object.values(AppointmentType), default: AppointmentType.IN_PERSON },
     symptoms: { type: String },
-    notes: { type: String }
+    notes: { type: String },
+    paymentStatus: { type: String, enum: ["PENDING", "PAID", "FAILED"], default: "PENDING" },
+    stripeSessionId: { type: String }
   },
   { timestamps: true }
 );

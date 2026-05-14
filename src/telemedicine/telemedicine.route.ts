@@ -13,6 +13,29 @@ export class TelemedicineRoutes {
   }
 
   private initializeRoutes(): void {
+    /**
+     * @openapi
+     * /api/telemedicine:
+     *   get:
+     *     tags: [Telemedicine]
+     *     summary: Get all telemedicine calls
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: query
+     *         name: doctorId
+     *         schema:
+     *           type: string
+     *       - in: query
+     *         name: patientId
+     *         schema:
+     *           type: string
+     *   post:
+     *     tags: [Telemedicine]
+     *     summary: Create a telemedicine call
+     *     security:
+     *       - bearerAuth: []
+     */
     this.router.get("/", authMiddleware, this.telemedicineController.getCalls);
     this.router.post("/", authMiddleware, this.telemedicineController.createCall);
   }

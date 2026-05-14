@@ -14,7 +14,24 @@ const DepartmentSchema: Schema = new Schema(
     description: { type: String },
     icon: { type: String }
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+DepartmentSchema.virtual('doctorCount', {
+  ref: 'Doctor',
+  localField: '_id',
+  foreignField: 'department',
+  count: true
+});
+
+DepartmentSchema.virtual('doctors', {
+  ref: 'Doctor',
+  localField: '_id',
+  foreignField: 'department'
+});
 
 export const Department = mongoose.model<IDepartment>('Department', DepartmentSchema);

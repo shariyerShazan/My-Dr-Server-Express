@@ -13,6 +13,21 @@ export class FinanceRoutes {
   }
 
   private initializeRoutes(): void {
+    /**
+     * @openapi
+     * /api/finances:
+     *   get:
+     *     tags: [Finances]
+     *     summary: Get all finances
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: query
+     *         name: doctorId
+     *         schema:
+     *           type: string
+     *         description: Filter by doctor ID
+     */
     this.router.get("/", authMiddleware, this.financeController.getFinances);
   }
 }

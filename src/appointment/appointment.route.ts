@@ -14,7 +14,26 @@ export class AppointmentRoutes {
   }
 
   private initializeRoutes(): void {
-    // Applying auth middleware to routes
+    /**
+     * @openapi
+     * /api/appointments:
+     *   get:
+     *     tags: [Appointments]
+     *     summary: Get all appointments
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       200:
+     *         description: List of appointments
+     *   post:
+     *     tags: [Appointments]
+     *     summary: Create an appointment
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       201:
+     *         description: Appointment created
+     */
     this.router.get("/", authMiddleware, this.appointmentController.getAppointments);
     this.router.post("/", authMiddleware, this.appointmentController.createAppointment);
   }
