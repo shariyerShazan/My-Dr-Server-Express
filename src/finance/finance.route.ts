@@ -18,16 +18,28 @@ export class FinanceRoutes {
      * /api/finances:
      *   get:
      *     tags: [Finances]
-     *     summary: Get all finances
+     *     summary: Get all transactional records
      *     security:
      *       - bearerAuth: []
      *     parameters:
      *       - in: query
      *         name: doctorId
-     *         schema:
-     *           type: string
-     *         description: Filter by doctor ID
+     *         schema: { type: string }
+     * /api/finances/analytics:
+     *   get:
+     *     tags: [Finances]
+     *     summary: Get clinic aggregation analytics (Transactions, Commissions, Active Staff)
+     *     security:
+     *       - bearerAuth: []
+     * /api/finances/my-earnings:
+     *   get:
+     *     tags: [Finances]
+     *     summary: Get doctor's total earnings and payout history
+     *     security:
+     *       - bearerAuth: []
      */
     this.router.get("/", authMiddleware, this.financeController.getFinances);
+    this.router.get("/analytics", authMiddleware, this.financeController.getClinicAnalytics);
+    this.router.get("/my-earnings", authMiddleware, this.financeController.getMyEarnings);
   }
 }

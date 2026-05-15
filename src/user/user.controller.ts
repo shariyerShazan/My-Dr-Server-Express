@@ -59,4 +59,34 @@ export class UserController {
       next(error);
     }
   }
+
+  public async uploadProfilePic(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.file) {
+        res.status(400).json({ success: false, message: "No file uploaded" });
+        return;
+      }
+
+      const userId = req.userId;
+      const user = await User.findById(userId);
+      if (!user) {
+        res.status(404).json({ success: false, message: "User not found" });
+        return;
+      }
+
+      const profilePic = `${process.env.BACKEND_URL}/uploads/profiles/${req.file.filename}`;
+
+      if (user.role === "DOCTOR") {
+        const { Doctor } = await import("../models/Doctor.js");
+        await Doctor.findOneAndUpdate({ user: userId } as any, { profilePic });
+      } else if (user.role === "PATIENT") {
+        const { Patient } = await import("../models/Patient.js");
+        await Patient.findOneAndUpdate({ user: userId } as any, { profilePic });
+      }
+
+      res.status(200).json({ success: true, profilePic });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

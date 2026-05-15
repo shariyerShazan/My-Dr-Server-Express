@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ReportController } from "./report.controller.js";
 import { authMiddleware } from "../middlewares/auth.js";
+import { upload } from "../middlewares/upload.js";
 
 export class ReportRoutes {
   public router: Router;
@@ -47,6 +48,8 @@ export class ReportRoutes {
      */
     this.router.get("/", authMiddleware, this.reportController.getReports);
     this.router.get("/:id", authMiddleware, this.reportController.getReportById);
-    this.router.post("/", authMiddleware, this.reportController.createReport);
+    this.router.post("/", authMiddleware, upload.single("file"), this.reportController.createReport);
+    this.router.patch("/:id", authMiddleware, upload.single("file"), this.reportController.updateReport);
+    this.router.delete("/:id", authMiddleware, this.reportController.deleteReport);
   }
 }

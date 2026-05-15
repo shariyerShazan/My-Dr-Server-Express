@@ -28,6 +28,7 @@ export interface IDoctor extends Document {
   isStripeConnected: boolean;
   isStripeAccountVerified: boolean;
   stripeOnboardingComplete: boolean;
+  profilePic?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,6 +102,7 @@ const DoctorSchema: Schema = new Schema(
     isStripeConnected: { type: Boolean, default: false },
     isStripeAccountVerified: { type: Boolean, default: false },
     stripeOnboardingComplete: { type: Boolean, default: false },
+    profilePic: { type: String },
   },
   { timestamps: true },
 );

@@ -18,19 +18,74 @@ export class DoctorRoutes {
      * /api/doctors:
      *   get:
      *     tags: [Doctors]
-     *     summary: Get all doctors
+     *     summary: Retrieve a list of doctors
+     *     description: Fetches a paginated list of doctors. Admin/Clinic Admin see all doctors; patients see only Stripe-verified ones.
+     *     parameters:
+     *       - in: query
+     *         name: page
+     *         schema:
+     *           type: integer
+     *       - in: query
+     *         name: limit
+     *         schema:
+     *           type: integer
+     *       - in: query
+     *         name: search
+     *         schema:
+     *           type: string
+     *       - in: query
+     *         name: department
+     *         schema:
+     *           type: string
      *     responses:
      *       200:
-     *         description: List of doctors
+     *         description: List of doctors retrieved successfully
      *   post:
      *     tags: [Doctors]
-     *     summary: Create a new doctor
+     *     summary: Create/Invite a new doctor
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email, firstName, lastName, phone, consultationFee]
+     *             properties:
+     *               email: { type: string }
+     *               firstName: { type: string }
+     *               lastName: { type: string }
+     *               phone: { type: string }
+     *               consultationFee: { type: number }
+     *               department: { type: string }
+     *               specialization: { type: string }
+     * /api/doctors/me:
+     *   get:
+     *     tags: [Doctors]
+     *     summary: Get current authenticated doctor profile
+     *     security:
+     *       - bearerAuth: []
+     *   put:
+     *     tags: [Doctors]
+     *     summary: Update current authenticated doctor profile
      *     security:
      *       - bearerAuth: []
      * /api/doctors/{id}:
      *   get:
      *     tags: [Doctors]
-     *     summary: Get a doctor by ID
+     *     summary: Get doctor by ID
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *   put:
+     *     tags: [Doctors]
+     *     summary: Update doctor profile (Admin)
+     *     security:
+     *       - bearerAuth: []
      *     parameters:
      *       - in: path
      *         name: id
@@ -74,6 +129,8 @@ export class DoctorRoutes {
      *           type: string
      */
     this.router.get("/me", authMiddleware, this.doctorController.getMe);
+    this.router.get("/dashboard-stats", authMiddleware, this.doctorController.getDashboardStats);
+    this.router.get("/my-patients", authMiddleware, this.doctorController.getMyPatients);
     this.router.put("/me", authMiddleware, this.doctorController.updateMe);
     this.router.get("/", authMiddleware, this.doctorController.getDoctors);
     this.router.post("/", authMiddleware, this.doctorController.createDoctor);

@@ -5,6 +5,8 @@ import {
   AppointmentStatus,
 } from "../appointment/appointment.model.js";
 import { Doctor } from "../models/Doctor.js";
+import { Finance, PaymentStatus } from "../models/Finance.js";
+import dayjs from "dayjs";
 
 let stripe: Stripe;
 
@@ -22,19 +24,11 @@ const getStripe = () => {
 };
 
 export class PaymentController {
-  public async createStripeAccount(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  public async createStripeAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const doctor = await Doctor.findOne({ user: req.userId } as any).populate(
-        "user",
-      );
+      const doctor = await Doctor.findOne({ user: req.userId } as any).populate("user");
       if (!doctor) {
-        res
-          .status(404)
-          .json({ success: false, message: "Doctor profile not found" });
+        res.status(404).json({ success: false, message: "Doctor profile not found" });
         return;
       }
 
@@ -50,11 +44,9 @@ export class PaymentController {
         return;
       }
 
-      // If account exists but not verified, get the onboarding link again
       let accountId = doctor.stripeAccountId;
 
       if (!accountId) {
-        // 1. Create Express Account
         const account = await getStripe().accounts.create({
           type: "express",
           country: "BD",
@@ -70,10 +62,9 @@ export class PaymentController {
       }
 
       doctor.stripeAccountId = accountId;
-      doctor.stripeId = accountId; // Store both for consistency
+      doctor.stripeId = accountId;
       await doctor.save();
 
-      // 2. Create Onboarding Link
       const accountLink = await getStripe().accountLinks.create({
         account: accountId,
         refresh_url: `${process.env.FRONTEND_URL}/dashboard/doctor/availability?stripe=refresh`,
@@ -91,19 +82,11 @@ export class PaymentController {
     }
   }
 
-  public async getStripeStatus(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  public async getStripeStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const doctor = await Doctor.findOne({ user: req.userId } as any).populate(
-        "user",
-      );
+      const doctor = await Doctor.findOne({ user: req.userId } as any).populate("user");
       if (!doctor) {
-        res
-          .status(404)
-          .json({ success: false, message: "Doctor profile not found" });
+        res.status(404).json({ success: false, message: "Doctor profile not found" });
         return;
       }
 
@@ -115,7 +98,7 @@ export class PaymentController {
           isStripeConnected: doctor.isStripeConnected,
           isStripeAccountVerified: doctor.isStripeAccountVerified,
           stripeOnboardingComplete: doctor.stripeOnboardingComplete,
-          isPublic: doctor.isStripeAccountVerified, // Doctor is public when verified
+          isPublic: doctor.isStripeAccountVerified,
           firstName: doctor.firstName,
           lastName: doctor.lastName,
           consultationFee: doctor.consultationFee,
@@ -126,59 +109,89 @@ export class PaymentController {
     }
   }
 
-  public async getStripeDashboardLink(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  public async getStripeDashboardLink(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const doctor = await Doctor.findOne({ user: req.userId } as any);
       if (!doctor || !doctor.stripeAccountId) {
-        res
-          .status(400)
-          .json({ success: false, message: "Stripe account not found" });
+        res.status(400).json({ success: false, message: "Stripe account not found" });
         return;
       }
 
-      const loginLink = await getStripe().accounts.createLoginLink(
-        doctor.stripeAccountId,
-      );
+      const loginLink = await getStripe().accounts.createLoginLink(doctor.stripeAccountId);
       res.status(200).json({ success: true, url: loginLink.url });
     } catch (error) {
       next(error);
     }
   }
 
-  public async createCheckoutSession(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  public async createCheckoutSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { appointmentId } = req.body;
-      const appointment =
-        await Appointment.findById(appointmentId).populate("doctor");
+      // Expect full appointment payload rather than an ID
+      const { doctorId, patientId, appointmentDate, timeSlot, type, symptoms, notes } = req.body;
 
-      if (!appointment) {
-        res
-          .status(404)
-          .json({ success: false, message: "Appointment not found" });
+      if (!doctorId || !patientId || !appointmentDate || !timeSlot) {
+        res.status(400).json({ success: false, message: "Missing required booking details." });
         return;
       }
 
-      const doctor = appointment.doctor as any;
+      const doctor = await Doctor.findById(doctorId);
+      if (!doctor) {
+        res.status(404).json({ success: false, message: "Doctor not found" });
+        return;
+      }
+
       if (!doctor.isStripeConnected || !doctor.stripeAccountId) {
-        res
-          .status(400)
-          .json({
-            success: false,
-            message: "Doctor has not enabled payments yet.",
-          });
+        res.status(400).json({ success: false, message: "Doctor has not enabled payments yet." });
         return;
       }
 
-      const amount = doctor.consultationFee * 100; // in cents
-      const applicationFee = Math.round(amount * 0.2); // 20% commission
+      // Perform availability validation (similar to appointment creation logic)
+      const targetDate = dayjs(appointmentDate);
+      const dayOfWeek = targetDate.format('dddd');
+
+      const dateStr = targetDate.format('YYYY-MM-DD');
+      if (doctor.availability.offDays && doctor.availability.offDays.includes(dateStr)) {
+        res.status(400).json({ success: false, message: `The doctor is on holiday on ${dateStr}` });
+        return;
+      }
+
+      const scheduleForDay = doctor.availability.weeklySchedule.find(s => s.day === dayOfWeek);
+      if (!scheduleForDay || !scheduleForDay.isActive) {
+        res.status(400).json({ success: false, message: `Doctor does not consult on ${dayOfWeek}s` });
+        return;
+      }
+
+      if (timeSlot < scheduleForDay.startTime || timeSlot > scheduleForDay.endTime) {
+        res.status(400).json({ success: false, message: `Appointment time ${timeSlot} is outside working hours` });
+        return;
+      }
+
+      const startOfTarget = targetDate.startOf('day').toDate();
+      const endOfTarget = targetDate.endOf('day').toDate();
+      const existingAppointment = await Appointment.findOne({
+        doctor: doctorId,
+        appointmentDate: { $gte: startOfTarget, $lte: endOfTarget },
+        timeSlot: timeSlot,
+        status: { $ne: AppointmentStatus.CANCELLED }
+      });
+
+      if (existingAppointment) {
+        res.status(400).json({ success: false, message: "This time slot is already booked." });
+        return;
+      }
+
+      // Minimum charge validation for Stripe ($0.50 USD)
+      if (doctor.consultationFee < 0.5) {
+        res.status(400).json({
+          success: false,
+          message: `Consultation fee ($${doctor.consultationFee}) is too low for online payment. Please set it to at least $0.50.`
+        });
+        return;
+      }
+
+      // Create checkout session using metadata to store future appointment data
+      const amount = doctor.consultationFee * 100;
+      const applicationFee = Math.round(amount * 0.2);
 
       const session = await getStripe().checkout.sessions.create({
         payment_method_types: ["card"],
@@ -188,7 +201,7 @@ export class PaymentController {
               currency: "usd",
               product_data: {
                 name: `Consultation with Dr. ${doctor.firstName} ${doctor.lastName}`,
-                description: `Appointment on ${appointment.appointmentDate} at ${appointment.timeSlot}`,
+                description: `Appointment on ${dateStr} at ${timeSlot}`,
               },
               unit_amount: amount,
             },
@@ -196,10 +209,17 @@ export class PaymentController {
           },
         ],
         mode: "payment",
-        success_url: `${process.env.FRONTEND_URL}/patient/appointments?status=paid&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.FRONTEND_URL}/patient/appointments?status=cancelled`,
+        success_url: `${process.env.FRONTEND_URL}/dashboard/patient/appointments?status=paid&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.FRONTEND_URL}/dashboard/patient/appointments?status=cancelled`,
         metadata: {
-          appointmentId: appointment.id,
+          doctorId,
+          patientId,
+          appointmentDate: startOfTarget.toISOString(),
+          timeSlot,
+          type: type || "IN_PERSON",
+          symptoms: symptoms ? symptoms.substring(0, 450) : "",
+          notes: notes ? notes.substring(0, 450) : "",
+          isWebhookCreated: "true"
         },
         payment_intent_data: {
           application_fee_amount: applicationFee,
@@ -215,11 +235,7 @@ export class PaymentController {
     }
   }
 
-  public async stripeWebhook(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
+  public async stripeWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
     const sig = req.headers["stripe-signature"] as string;
     let event: Stripe.Event;
 
@@ -238,75 +254,111 @@ export class PaymentController {
     try {
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as Stripe.Checkout.Session;
-        const appointmentId = session.metadata?.appointmentId;
+        const metadata = session.metadata || {};
 
-        if (appointmentId) {
-          await Appointment.findByIdAndUpdate(appointmentId, {
+        if (metadata.isWebhookCreated === "true") {
+          // Fresh appointment booked exclusively via Stripe Session!
+          const doctor = await Doctor.findById(metadata.doctorId);
+
+          if (doctor) {
+            const appointment = await Appointment.create({
+              doctor: metadata.doctorId as string,
+              patient: metadata.patientId as string,
+              department: String(doctor.department),
+              appointmentDate: new Date(metadata.appointmentDate as string),
+              timeSlot: metadata.timeSlot as string,
+              type: metadata.type as any,
+              symptoms: metadata.symptoms as string,
+              notes: metadata.notes as string,
+              status: AppointmentStatus.CONFIRMED,
+              paymentStatus: "PAID"
+            });
+
+            // Create Finance Record
+            await Finance.create({
+              doctor: metadata.doctorId as string,
+              patient: metadata.patientId as string,
+              appointment: appointment._id as any,
+              amount: session.amount_total! / 100,
+              status: PaymentStatus.PAID,
+              transactionId: session.id, // Or payment_intent
+              paymentDate: new Date()
+            });
+
+            // Notify Admin & Doctor via Socket
+            try {
+              const { socketService } = await import("../config/socket.js");
+              const populatedDoctor = await Doctor.findById(metadata.doctorId).populate("user");
+              if (populatedDoctor && (populatedDoctor as any).user) {
+                socketService.createNotification({
+                  recipient: String((populatedDoctor as any).user._id),
+                  title: "New Paid Appointment",
+                  message: `A new appointment has been booked and paid for ${dayjs(metadata.appointmentDate).format("MMM DD")}.`,
+                  type: "APPOINTMENT",
+                  link: "/dashboard/doctor/appointments"
+                });
+              }
+              socketService.createNotificationForRole("CLINIC_ADMIN", {
+                title: "New Revenue Generated",
+                message: `New booking for Dr. ${doctor.firstName}. Payment verified.`,
+                type: "FINANCE",
+                link: "/clinic/finance"
+              });
+            } catch (e) {
+              console.error("Socket emit failed", e);
+            }
+
+            console.log(`✅ Appointment and Finance successfully pure-created via Stripe Webhook.`);
+          } else {
+            console.log(`❌ Pure Webhook booking failed: Doctor not found.`);
+          }
+        }
+        else if (metadata.appointmentId) {
+          // Backward compatibility for old flow
+          await Appointment.findByIdAndUpdate(metadata.appointmentId, {
             status: AppointmentStatus.CONFIRMED,
             paymentStatus: "PAID",
           });
-          console.log(`✅ Appointment ${appointmentId} confirmed via Stripe.`);
+          console.log(`✅ Legacy Appointment ${metadata.appointmentId} confirmed via Stripe.`);
         }
       }
 
       if (event.type === "account.updated") {
         const account = event.data.object as Stripe.Account;
-
-        // Check if onboarding is complete and charges or transfers are enabled
-        // For BD accounts, charges_enabled will be false, so we check transfers capability or payouts_enabled
-        const isReady = account.details_submitted && 
-          (account.charges_enabled || 
-           account.capabilities?.transfers === "active" || 
-           account.payouts_enabled);
+        const isReady = account.details_submitted &&
+          (account.charges_enabled ||
+            account.capabilities?.transfers === "active" ||
+            account.payouts_enabled);
 
         if (isReady) {
-          const updatedDoctor = await Doctor.findOneAndUpdate(
-            { stripeAccountId: account.id },
-            {
-              isStripeConnected: true,
-              isStripeAccountVerified: true,
-              stripeOnboardingComplete: true,
-            },
-            { new: true },
-          );
-          console.log(
-            `✅ Doctor account ${account.id} is now LIVE, CONNECTED and VERIFIED.`,
-          );
-          console.log(
-            `   Doctor: ${updatedDoctor?.firstName} ${updatedDoctor?.lastName} is now PUBLIC!`,
-          );
-        } else if (account.details_submitted) {
-          // Onboarding submitted but charges not enabled yet
           await Doctor.findOneAndUpdate(
             { stripeAccountId: account.id },
-            {
-              stripeOnboardingComplete: true,
-              isStripeConnected: false,
-              isStripeAccountVerified: false,
-            },
+            { isStripeConnected: true, isStripeAccountVerified: true, stripeOnboardingComplete: true },
           );
-          console.log(
-            `⏳ Doctor account ${account.id} onboarding submitted, awaiting verification.`,
+          
+          // Notify Admin about Doctor Verification
+          try {
+            const dr = await Doctor.findOne({ stripeAccountId: account.id });
+            const { socketService } = await import("../config/socket.js");
+            socketService.createNotificationForRole("CLINIC_ADMIN", {
+              title: "Doctor Stripe Verified",
+              message: `Dr. ${dr?.firstName} ${dr?.lastName} has completed Stripe onboarding and is now verified.`,
+              type: "DOCTOR_VERIFICATION",
+              link: "/clinic/doctors"
+            });
+          } catch (e) {}
+
+        } else if (account.details_submitted) {
+          await Doctor.findOneAndUpdate(
+            { stripeAccountId: account.id },
+            { stripeOnboardingComplete: true, isStripeConnected: false, isStripeAccountVerified: false },
           );
         } else {
-          // Onboarding not complete
           await Doctor.findOneAndUpdate(
             { stripeAccountId: account.id },
-            {
-              isStripeConnected: false,
-              isStripeAccountVerified: false,
-              stripeOnboardingComplete: false,
-            },
-          );
-          console.log(
-            `⚠️  Doctor account ${account.id} onboarding incomplete.`,
+            { isStripeConnected: false, isStripeAccountVerified: false, stripeOnboardingComplete: false },
           );
         }
-      }
-
-      if (event.type === "account.application.authorized") {
-        const account = event.data.object as unknown as Stripe.Account;
-        console.log(`✓ Application authorized for account ${account.id}`);
       }
 
       res.json({ received: true });

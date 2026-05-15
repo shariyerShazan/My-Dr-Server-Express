@@ -25,30 +25,40 @@ export class AuthRoutes {
      *         application/json:
      *           schema:
      *             type: object
+     *             required: [email, password]
      *             properties:
-     *               email:
-     *                 type: string
-     *               password:
-     *                 type: string
-     *     responses:
-     *       200:
-     *         description: Login successful
-     *       401:
-     *         description: Invalid credentials
-     */
-    this.router.post("/login", this.authController.login);
-    
-    /**
-     * @openapi
+     *               email: { type: string }
+     *               password: { type: string }
      * /api/auth/register/send-otp:
      *   post:
      *     tags: [Auth]
      *     summary: Send OTP for registration
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email]
+     *             properties:
+     *               email: { type: string }
      * /api/auth/register/verify-otp:
      *   post:
      *     tags: [Auth]
-     *     summary: Verify OTP and create user
+     *     summary: Verify OTP and create user account
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email, otp, password]
+     *             properties:
+     *               email: { type: string }
+     *               otp: { type: string }
+     *               password: { type: string }
      */
+    this.router.post("/login", this.authController.login);
     this.router.post("/register/send-otp", this.authController.sendOtp);
     this.router.post("/register/verify-otp", this.authController.verifyOtpAndRegister);
   }

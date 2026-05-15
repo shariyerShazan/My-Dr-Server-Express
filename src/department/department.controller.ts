@@ -19,6 +19,7 @@ export class DepartmentController {
       const departments = await Department.find(query)
         .populate("doctorCount")
         .populate("doctors", "firstName lastName")
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
 

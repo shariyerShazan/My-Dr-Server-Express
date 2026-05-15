@@ -13,6 +13,7 @@ export interface IPatient extends Document {
   address: string;
   emergencyContact: string;
   medicalHistory: string[];
+  profilePic?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,7 +29,8 @@ const PatientSchema: Schema = new Schema(
     contactNumber: { type: String, required: true },
     address: { type: String },
     emergencyContact: { type: String },
-    medicalHistory: [{ type: String }]
+    medicalHistory: [{ type: String }],
+    profilePic: { type: String }
   },
   { timestamps: true }
 );

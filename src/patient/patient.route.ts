@@ -18,7 +18,24 @@ export class PatientRoutes {
      * /api/patients:
      *   get:
      *     tags: [Patients]
-     *     summary: Get all patients
+     *     summary: Get all patients (Admin)
+     *     security:
+     *       - bearerAuth: []
+     * /api/patients/me:
+     *   get:
+     *     tags: [Patients]
+     *     summary: Get self profile
+     *     security:
+     *       - bearerAuth: []
+     *   put:
+     *     tags: [Patients]
+     *     summary: Update self profile
+     *     security:
+     *       - bearerAuth: []
+     * /api/patients/me/dashboard-stats:
+     *   get:
+     *     tags: [Patients]
+     *     summary: Get stats for patient dashboard
      *     security:
      *       - bearerAuth: []
      * /api/patients/{id}:
@@ -35,7 +52,9 @@ export class PatientRoutes {
      *           type: string
      */
     this.router.get("/me", authMiddleware, this.patientController.getMe);
+    this.router.get("/dashboard-stats", authMiddleware, this.patientController.getDashboardStats);
     this.router.get("/", authMiddleware, this.patientController.getPatients);
     this.router.get("/:id", authMiddleware, this.patientController.getPatientById);
+    this.router.patch("/:id", authMiddleware, this.patientController.updatePatient);
   }
 }

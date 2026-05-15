@@ -16,31 +16,41 @@ import { PrescriptionRoutes } from "./prescription/prescription.route.js";
 import { ReportRoutes } from "./report/report.route.js";
 import { TelemedicineRoutes } from "./telemedicine/telemedicine.route.js";
 import { PaymentRoutes } from "./payment/payment.route.js";
+import { NotificationRoutes } from "./notification/notification.route.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
+import { createServer, Server as HttpServer } from "http";
+import { socketService } from "./config/socket.js";
 
 class App {
   public app: Application;
   public port: number;
+  public httpServer: HttpServer;
 
   constructor() {
     this.app = express();
     this.port = parseInt(process.env.PORT || "5555", 10);
+    this.httpServer = createServer(this.app);
 
     this.connectDatabase();
     this.initializeMiddleware();
     this.initializeRoutes();
     this.initializeErrorHandling();
+    this.initializeSocket();
   }
 
   private async connectDatabase(): Promise<void> {
     await database.connect();
   }
 
+  private initializeSocket(): void {
+    socketService.initialize(this.httpServer);
+  }
+
   private initializeMiddleware(): void {
     this.app.use(cors(
       {
-        origin: "http://localhost:5173",
+        origin: process.env.FRONTEND_URL!,
         credentials: true
         }
     ));
@@ -63,6 +73,9 @@ class App {
     
     // Swagger initialization
     this.app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+    
+    // Serve uploaded reports locally
+    this.app.use("/uploads", express.static("uploads"));
   }
 
   private initializeRoutes(): void {
@@ -77,6 +90,7 @@ class App {
     const reportRoutes = new ReportRoutes();
     const telemedicineRoutes = new TelemedicineRoutes();
     const paymentRoutes = new PaymentRoutes();
+    const notificationRoutes = new NotificationRoutes();
     
     // API Routes
     this.app.use("/api/auth", authRoutes.router);
@@ -90,6 +104,7 @@ class App {
     this.app.use("/api/reports", reportRoutes.router);
     this.app.use("/api/telemedicine", telemedicineRoutes.router);
     this.app.use("/api/payments", paymentRoutes.router);
+    this.app.use("/api/notifications", notificationRoutes.router);
 
     // Default route
     this.app.get("/", (req: Request, res: Response) => {
@@ -106,7 +121,7 @@ class App {
   }
 
   public listen(): void {
-    this.app.listen(this.port, () => {
+    this.httpServer.listen(this.port, () => {
       console.log(`🚀 Server listening on port ${this.port}`);
     });
   }

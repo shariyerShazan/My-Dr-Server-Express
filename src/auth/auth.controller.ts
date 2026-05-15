@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { User, UserRole } from "../models/User.js";
 import { Otp } from "../models/Otp.js";
+import { Patient } from "../models/Patient.js";
 import { sendMail } from "../utils/mailSender.js";
 
 export class AuthController {
@@ -90,7 +91,7 @@ export class AuthController {
 
   public async verifyOtpAndRegister(req: Request, res: Response, next: NextFunction): Promise<void> {
      try {
-       const { email, otp, password } = req.body;
+       const { email, otp, password, firstName, lastName, dateOfBirth, contactNumber, gender, address, bloodGroup } = req.body;
        
        const otpRecord = await Otp.findOne({ email });
        if (!otpRecord) {
@@ -121,6 +122,18 @@ export class AuthController {
          isActive: true
        });
 
+       // Create default patient profile
+       await Patient.create({
+         user: user._id,
+         firstName: firstName || "Unknown",
+         lastName: lastName || "Unknown",
+         dateOfBirth: dateOfBirth || new Date(),
+         gender: gender || "OTHER",
+         contactNumber: contactNumber || "0000000000",
+         address: address || "",
+         bloodGroup: bloodGroup || ""
+       });
+
       const secret = process.env.JWT_SECRET || "fallback_secret";
       const token = jwt.sign(
         { userId: user._id }, 
@@ -138,6 +151,19 @@ export class AuthController {
            role: user.role
          }
        });
+
+       // Notify Admin
+       try {
+         const { socketService } = await import("../config/socket.js");
+         socketService.createNotificationForRole("CLINIC_ADMIN", {
+           title: "New Patient Registered",
+           message: `${firstName} ${lastName} has joined the platform.`,
+           type: "USER_REGISTRATION",
+           link: "/clinic/overview" // Or relevant admin page
+         });
+       } catch (e) {
+         console.error("Socket notification failed", e);
+       }
      } catch (error) {
         next(error);
      }

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { UserController } from "./user.controller.js";
 import { authMiddleware } from "../middlewares/auth.js";
+import { upload } from "../middlewares/upload.js";
 
 export class UserRoutes {
   public router: Router;
@@ -68,5 +69,25 @@ export class UserRoutes {
     this.router.post("/", authMiddleware, this.userController.createUser);
     this.router.put("/:id", authMiddleware, this.userController.updateUser);
     this.router.delete("/:id", authMiddleware, this.userController.deleteUser);
+    
+    /**
+     * @openapi
+     * /api/users/upload-profile-pic:
+     *   post:
+     *     tags: [Users]
+     *     summary: Upload profile picture for the current user
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       content:
+     *         multipart/form-data:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               profilePic:
+     *                 type: string
+     *                 format: binary
+     */
+    this.router.post("/upload-profile-pic", authMiddleware, upload.single("profilePic"), this.userController.uploadProfilePic);
   }
 }

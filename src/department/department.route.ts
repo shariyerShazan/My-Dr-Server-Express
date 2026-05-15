@@ -18,22 +18,46 @@ export class DepartmentRoutes {
      * /api/departments:
      *   get:
      *     tags: [Departments]
-     *     summary: Get all departments
+     *     summary: Retrieve clinical departments
+     *     parameters:
+     *       - in: query
+     *         name: page
+     *         schema: { type: integer }
+     *       - in: query
+     *         name: limit
+     *         schema: { type: integer }
+     *       - in: query
+     *         name: search
+     *         schema: { type: string }
      *   post:
      *     tags: [Departments]
-     *     summary: Create a department
+     *     summary: Create a new department
      *     security:
      *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [name]
+     *             properties:
+     *               name: { type: string }
+     *               description: { type: string }
      * /api/departments/{id}:
      *   get:
      *     tags: [Departments]
-     *     summary: Get a department by ID
-     *     parameters:
-     *       - in: path
-     *         name: id
-     *         required: true
-     *         schema:
-     *           type: string
+     *     summary: Get department details by ID
+     *   put:
+     *     tags: [Departments]
+     *     summary: Update department details
+     *     security:
+     *       - bearerAuth: []
+     *   delete:
+     *     tags: [Departments]
+     *     summary: Delete department
+     *     security:
+     *       - bearerAuth: []
      */
     this.router.get("/", this.departmentController.getDepartments);
     this.router.get("/:id", this.departmentController.getDepartmentById);

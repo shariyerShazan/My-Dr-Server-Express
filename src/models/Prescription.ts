@@ -11,10 +11,13 @@ export interface IMedicine {
 }
 
 export interface IPrescription extends Document {
-  appointment: IAppointment['_id'];
+  appointment?: IAppointment['_id'];
   patient: IPatient['_id'];
   doctor: IDoctor['_id'];
-  medicines: IMedicine[];
+  title: string;
+  description: string;
+  fileUrl?: string; // PDF or Image
+  medicines?: IMedicine[];
   instructions?: string;
   nextVisitDate?: Date;
   createdAt: Date;
@@ -30,9 +33,12 @@ const MedicineSchema = new Schema({
 
 const PrescriptionSchema: Schema = new Schema(
   {
-    appointment: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment', required: true },
+    appointment: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
     patient: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
     doctor: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    fileUrl: { type: String }, 
     medicines: [MedicineSchema],
     instructions: { type: String },
     nextVisitDate: { type: Date }

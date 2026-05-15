@@ -48,6 +48,7 @@ export class DoctorController {
       const doctors = await Doctor.find(query)
         .populate("user")
         .populate("department")
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
 
@@ -394,6 +395,111 @@ export class DoctorController {
       }
 
       res.status(200).json({ success: true, data: doctor });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getMyPatients(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const doctor = await Doctor.findOne({ user: req.userId } as any);
+      if (!doctor) {
+        res.status(404).json({ success: false, message: "Doctor profile not found" });
+        return;
+      }
+
+      const { search } = req.query;
+      const { Appointment } = await import("../appointment/appointment.model.js");
+      
+      // Find all unique patient IDs from appointments with this doctor
+      const appointments = await Appointment.find({ doctor: doctor._id })
+        .distinct("patient");
+
+      const query: any = { _id: { $in: appointments } };
+
+      if (search) {
+        const regex = new RegExp(search as string, "i");
+        query.$or = [
+          { firstName: regex },
+          { lastName: regex },
+          { contactNumber: regex }
+        ];
+      }
+
+      const patients = await (await import("../models/Patient.js")).Patient.find(query)
+        .populate("user", "email");
+
+      res.status(200).json({ success: true, count: patients.length, data: patients });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getDashboardStats(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const doctor = await Doctor.findOne({ user: req.userId } as any);
+      if (!doctor) {
+        res.status(404).json({ success: false, message: "Doctor profile not found" });
+        return;
+      }
+
+      const { Appointment, AppointmentStatus } = await import("../appointment/appointment.model.js");
+      const { Prescription } = await import("../models/Prescription.js");
+      const { Finance, PaymentStatus } = await import("../models/Finance.js");
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // 1. Today's Appointments
+      const todayCount = await Appointment.countDocuments({
+        doctor: doctor._id,
+        appointmentDate: { $gte: today, $lt: tomorrow },
+        status: { $ne: AppointmentStatus.CANCELLED }
+      });
+
+      // 2. Total Unique Patients
+      const totalPatients = (await Appointment.distinct("patient", { doctor: doctor._id })).length;
+
+      // 3. Total Prescriptions
+      const totalPrescriptions = await Prescription.countDocuments({ doctor: doctor._id });
+
+      // 4. Total Earnings
+      const earningsRecord = await Finance.aggregate([
+        { $match: { doctor: doctor._id, status: PaymentStatus.PAID } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]);
+      const totalEarnings = earningsRecord[0]?.total || 0;
+
+      // 5. Recent Appointments (Next 5)
+      const recentAppointments = await Appointment.find({
+        doctor: doctor._id,
+        appointmentDate: { $gte: today },
+        status: AppointmentStatus.CONFIRMED
+      })
+      .populate("patient")
+      .sort({ appointmentDate: 1, timeSlot: 1 })
+      .limit(5);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          todayAppointments: todayCount,
+          totalPatients,
+          totalPrescriptions,
+          totalEarnings,
+          recentAppointments
+        }
+      });
     } catch (error) {
       next(error);
     }
