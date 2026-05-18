@@ -1,13 +1,12 @@
-import mongoose, { Schema, Document } from 'mongoose';
-import type { IUser } from './User.js';
-
+import mongoose, { Schema, Document } from "mongoose";
+import type { IUser } from "./User.js";
 
 export interface IPatient extends Document {
-  user: IUser['_id'];
+  user: IUser["_id"];
   firstName: string;
   lastName: string;
   dateOfBirth: Date;
-  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  gender: "MALE" | "FEMALE" | "OTHER";
   bloodGroup: string;
   contactNumber: string;
   address: string;
@@ -20,19 +19,19 @@ export interface IPatient extends Document {
 
 const PatientSchema: Schema = new Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     dateOfBirth: { type: Date, required: true },
-    gender: { type: String, enum: ['MALE', 'FEMALE', 'OTHER'], required: true },
+    gender: { type: String, enum: ["MALE", "FEMALE", "OTHER"], required: true },
     bloodGroup: { type: String },
     contactNumber: { type: String, required: true },
     address: { type: String },
     emergencyContact: { type: String },
     medicalHistory: [{ type: String }],
-    profilePic: { type: String }
+    profilePic: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-export const Patient = mongoose.model<IPatient>('Patient', PatientSchema);
+export const Patient = mongoose.model<IPatient>("Patient", PatientSchema);

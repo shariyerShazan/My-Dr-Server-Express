@@ -6,7 +6,7 @@ export enum NotificationType {
   REPORT = "REPORT",
   FINANCE = "FINANCE",
   USER_REGISTRATION = "USER_REGISTRATION",
-  DOCTOR_VERIFICATION = "DOCTOR_VERIFICATION"
+  DOCTOR_VERIFICATION = "DOCTOR_VERIFICATION",
 }
 
 export interface INotification extends Document {
@@ -21,14 +21,25 @@ export interface INotification extends Document {
 
 const NotificationSchema: Schema = new Schema(
   {
-    recipient: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    recipient: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     title: { type: String, required: true },
     message: { type: String, required: true },
-    type: { type: String, enum: Object.values(NotificationType), required: true },
+    type: {
+      type: String,
+      enum: Object.values(NotificationType),
+      required: true,
+    },
     link: { type: String },
-    isRead: { type: Boolean, default: false }
+    isRead: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-export const Notification = mongoose.model<INotification>("Notification", NotificationSchema);
+export const Notification = mongoose.model<INotification>(
+  "Notification",
+  NotificationSchema,
+);
