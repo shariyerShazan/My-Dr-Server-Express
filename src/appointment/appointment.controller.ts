@@ -89,13 +89,7 @@ export class AppointmentController {
         return;
       }
 
-      // Generate meet link only when APPROVED
       const updateData: any = { adminApprovalStatus };
-      if (adminApprovalStatus === 'APPROVED') {
-        const idStr = String(id);
-        const roomId = `${idStr.slice(-8)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-        updateData.meetLink = `https://meet.jit.si/mydr-${roomId}`;
-      }
 
       const appointment = await Appointment.findByIdAndUpdate(id, updateData, { new: true })
         .populate("patient")

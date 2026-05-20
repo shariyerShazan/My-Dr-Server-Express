@@ -261,7 +261,7 @@ export class PaymentController {
           const doctor = await Doctor.findById(metadata.doctorId);
 
           if (doctor) {
-            const appointment = await Appointment.create({
+            const appointmentData: any = {
               doctor: metadata.doctorId as string,
               patient: metadata.patientId as string,
               department: String(doctor.department),
@@ -272,7 +272,14 @@ export class PaymentController {
               notes: metadata.notes as string,
               status: AppointmentStatus.CONFIRMED,
               paymentStatus: "PAID"
-            });
+            };
+
+            if (metadata.type === "TELEMEDICINE") {
+              const roomId = `${String(metadata.patientId).slice(-4)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+              appointmentData.meetLink = `https://meet.jit.si/mydr-${roomId}`;
+            }
+
+            const appointment = await Appointment.create(appointmentData);
 
             // Create Finance Record
             await Finance.create({
