@@ -57,7 +57,7 @@ export class PrescriptionRoutes {
      */
     this.router.get("/", authMiddleware, this.prescriptionController.getPrescriptions);
     this.router.get("/patient/:patientId", authMiddleware, this.prescriptionController.getPatientPrescriptions);
-    this.router.get("/:id", authMiddleware, this.prescriptionController.getPrescriptionById);
+    this.router.get("/:id", this.prescriptionController.getPrescriptionById);
     this.router.post("/", authMiddleware, upload.single("file"), this.prescriptionController.createPrescription);
   }
 }

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "seed:admin": "tsx src/scripts/adminSeeder.ts",
+    "reset:db": "tsx src/scripts/reset_db.ts"
   },
   "keywords": [],
   "author": "",

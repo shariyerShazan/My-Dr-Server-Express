@@ -47,7 +47,7 @@ export class ReportRoutes {
      *           type: string
      */
     this.router.get("/", authMiddleware, this.reportController.getReports);
-    this.router.get("/:id", authMiddleware, this.reportController.getReportById);
+    this.router.get("/:id", this.reportController.getReportById);
     this.router.post("/", authMiddleware, upload.single("file"), this.reportController.createReport);
     this.router.patch("/:id", authMiddleware, upload.single("file"), this.reportController.updateReport);
     this.router.delete("/:id", authMiddleware, this.reportController.deleteReport);

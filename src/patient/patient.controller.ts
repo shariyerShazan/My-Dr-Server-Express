@@ -106,12 +106,30 @@ export class PatientController {
 
   public async getDashboardStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const patient = await Patient.findOne({ user: req.userId } as any);
-      if (!patient) {
-        res.status(404).json({ success: false, message: "Patient profile not found" });
+      const userId = req.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Unauthorized" });
         return;
       }
 
+      // Identity-Aware: Find ALL patient profiles for this user
+      const { Patient } = await import("../models/Patient.js");
+      const profiles = await Patient.find({ user: userId });
+      if (profiles.length === 0) {
+        res.status(200).json({
+          success: true,
+          data: {
+            nextAppointment: null,
+            totalAppointments: 0,
+            totalPrescriptions: 0,
+            totalReports: 0,
+            recentAppointments: []
+          }
+        });
+        return;
+      }
+
+      const profileIds = profiles.map(p => p._id);
       const { Appointment, AppointmentStatus } = await import("../appointment/appointment.model.js");
       const { Prescription } = await import("../models/Prescription.js");
       const { Report } = await import("../models/Report.js");
@@ -119,22 +137,22 @@ export class PatientController {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // 1. Next Appointment
+      // 1. Next Appointment (from any profile)
       const nextAppointment = await Appointment.findOne({
-        patient: patient._id,
+        patient: { $in: profileIds },
         appointmentDate: { $gte: today },
         status: { $in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] }
       })
         .populate("doctor")
         .sort({ appointmentDate: 1, timeSlot: 1 });
 
-      // 2. Total Counts
-      const totalAppointments = await Appointment.countDocuments({ patient: patient._id });
-      const totalPrescriptions = await Prescription.countDocuments({ patient: patient._id });
-      const totalReports = await Report.countDocuments({ patient: patient._id });
+      // 2. Total Counts (across all profiles)
+      const totalAppointments = await Appointment.countDocuments({ patient: { $in: profileIds } });
+      const totalPrescriptions = await Prescription.countDocuments({ patient: { $in: profileIds } });
+      const totalReports = await Report.countDocuments({ patient: { $in: profileIds } });
 
-      // 3. Recent Activity (Last 5 appointments)
-      const recentAppointments = await Appointment.find({ patient: patient._id })
+      // 3. Recent Activity (across all profiles)
+      const recentAppointments = await Appointment.find({ patient: { $in: profileIds } })
         .populate("doctor")
         .sort({ appointmentDate: -1 })
         .limit(5);

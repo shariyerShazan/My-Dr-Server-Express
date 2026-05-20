@@ -46,7 +46,7 @@ const AppointmentSchema: Schema = new Schema(
     symptoms: { type: String },
     notes: { type: String },
     paymentStatus: { type: String, enum: ["PENDING", "PAID", "FAILED"], default: "PENDING" },
-    adminApprovalStatus: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
+    adminApprovalStatus: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "APPROVED" },
     meetLink: { type: String },
     stripeSessionId: { type: String }
   },

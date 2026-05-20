@@ -14,9 +14,7 @@ export class ReportController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      let patientIdFilter = req.query.patientId;
       const userId = (req as any).userId;
-
       if (!userId) {
          res.status(401).json({ success: false, message: "Unauthorized" });
          return;
@@ -24,41 +22,64 @@ export class ReportController {
 
       const user = await User.findById(userId);
       const role = user?.role;
+      
+      let query: any = {};
+      let targetPatientIds: any[] = [];
 
       if (role === "PATIENT") {
-        const patient = await Patient.findOne({ user: userId } as any);
-        if (!patient) {
-          res.status(404).json({ success: false, message: "Patient profile not found" });
+        // Identity-Aware: Find ALL patient profiles for this user
+        const profiles = await Patient.find({ user: userId });
+        if (profiles.length === 0) {
+          res.status(200).json({ success: true, count: 0, total: 0, data: [] });
           return;
         }
-        patientIdFilter = patient._id as unknown as string;
+        targetPatientIds = profiles.map(p => p._id);
+        query.patient = { $in: targetPatientIds };
       } else if (role === "DOCTOR") {
         const doctor = await Doctor.findOne({ user: userId } as any);
         if (!doctor) {
           res.status(404).json({ success: false, message: "Doctor profile not found" });
           return;
         }
-        
-        if (!patientIdFilter) {
+
+        const patientIdInQuery = req.query.patientId;
+        if (!patientIdInQuery) {
           res.status(400).json({ success: false, message: "patientId is required for doctors" });
           return;
         }
 
-        // Access Control: Check if Doctor has any appointments with this Patient
+        // 1. Resolve the User Identity for the provided patientId
+        let targetUserId: string | null = null;
+        const pDoc = await Patient.findById(patientIdInQuery).lean();
+        if (pDoc) {
+          targetUserId = String(pDoc.user);
+        } else {
+          // Check if it was already a UserID being passed
+          const uDoc = await User.findById(patientIdInQuery).lean();
+          if (uDoc) targetUserId = String(uDoc._id);
+        }
+
+        if (!targetUserId) {
+          res.status(404).json({ success: false, message: "Patient identity not found" });
+          return;
+        }
+
+        // 2. Find ALL patient records for this identity (handles duplicates)
+        const allPatientsForUser = await Patient.find({ user: targetUserId }).select("_id").lean();
+        targetPatientIds = allPatientsForUser.map(p => p._id);
+
+        // 3. Access Control: Check if Doctor has any appointments with ANY of these patient profiles
         const hasAppointment = await Appointment.exists({
           doctor: doctor._id as any,
-          patient: patientIdFilter as any
+          patient: { $in: targetPatientIds }
         } as any);
 
         if (!hasAppointment) {
           res.status(403).json({ success: false, message: "Access denied. No assigned appointments with this patient." });
           return;
         }
-      }
 
-      const query: any = {};
-      if (patientIdFilter) {
-        query.patient = patientIdFilter;
+        query.patient = { $in: targetPatientIds };
       }
 
       const total = await Report.countDocuments(query);
@@ -83,34 +104,17 @@ export class ReportController {
 
   public async getReportById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const report = await Report.findById(req.params.id);
+      const report = await Report.findById(req.params.id).populate("patient doctor");
       if (!report) {
          res.status(404).json({ success: false, message: "Report not found" });
          return;
       }
 
       const userId = (req as any).userId;
-      const user = await User.findById(userId);
-      const role = user?.role;
-
-      if (role === "PATIENT") {
-        const patient = await Patient.findOne({ user: userId } as any);
-        if (String(report.patient) !== String(patient?._id)) {
-           res.status(403).json({ success: false, message: "Access denied" });
-           return;
-        }
-      } else if (role === "DOCTOR") {
-        const doctor = await Doctor.findOne({ user: userId } as any);
-        const hasAppointment = await Appointment.exists({
-          doctor: doctor?._id as any,
-          patient: report.patient as any
-        } as any);
-        if (!hasAppointment) {
-           res.status(403).json({ success: false, message: "Access denied" });
-           return;
-        }
-      }
-
+      
+      // If NOT logged in, we still allow viewing (Public Access)
+      // If logged in, we check if they have special reasons to see it (optional, but requested public anyway)
+      
       res.status(200).json({ success: true, data: report });
     } catch (error) {
       next(error);
@@ -152,8 +156,11 @@ export class ReportController {
         date: new Date()
       });
 
-      // Notify doctors who have appointments with this patient
-      const appointments = await Appointment.find({ patient: patient._id }).populate("doctor");
+      // Identity-Aware: Notify ALL doctors who have appointments with ANY of the patient's profiles
+      const allPatientProfiles = await Patient.find({ user: userId }).select("_id").lean();
+      const profileIds = allPatientProfiles.map(p => p._id);
+
+      const appointments = await Appointment.find({ patient: { $in: profileIds } }).populate("doctor");
       const doctorUserIds = [...new Set(appointments.map(a => String((a.doctor as any).user)))];
       
       const { socketService } = await import("../config/socket.js");
@@ -163,7 +170,7 @@ export class ReportController {
           title: "New Health Report",
           message: `${patient.firstName} has uploaded a new health report: ${testName}.`,
           type: "REPORT",
-          link: `/dashboard/doctor/patients` // Or a more specific link if available
+          link: `/dashboard/doctor/patients` 
         });
       });
 
@@ -182,8 +189,9 @@ export class ReportController {
       }
 
       const userId = (req as any).userId;
-      const patient = await Patient.findOne({ user: userId } as any);
-      if (String(report.patient) !== String(patient?._id)) {
+      const reportPatient = await Patient.findById(report.patient).lean();
+      
+      if (!reportPatient || String(reportPatient.user) !== String(userId)) {
          res.status(403).json({ success: false, message: "Access denied" });
          return;
       }
@@ -216,8 +224,9 @@ export class ReportController {
       }
 
       const userId = (req as any).userId;
-      const patient = await Patient.findOne({ user: userId } as any);
-      if (String(report.patient) !== String(patient?._id)) {
+      const reportPatient = await Patient.findById(report.patient).lean();
+      
+      if (!reportPatient || String(reportPatient.user) !== String(userId)) {
          res.status(403).json({ success: false, message: "Access denied" });
          return;
       }

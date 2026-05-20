@@ -40,8 +40,27 @@ export class DoctorController {
         ];
       }
 
+      // 1. Filter by Specialization (Specific)
+      if (req.query.specialization) {
+        query.specialization = { $regex: new RegExp(req.query.specialization as string, "i") };
+      }
+
+      // 2. Filter by Department (ID)
       if (req.query.department) {
         query.department = req.query.department;
+      }
+
+      // 3. Filter by Availability on a specific Date
+      if (req.query.availableDate) {
+        const dateStr = req.query.availableDate as string; // Expects YYYY-MM-DD
+        const { default: dayjs } = await import("dayjs");
+        const dayName = dayjs(dateStr).format("dddd");
+
+        // Doctor must not be on an off-day AND must have the day active in their weekly schedule
+        query["availability.offDays"] = { $ne: dateStr };
+        query["availability.weeklySchedule"] = {
+          $elemMatch: { day: dayName, isActive: true }
+        };
       }
 
       const total = await Doctor.countDocuments(query);

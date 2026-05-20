@@ -58,8 +58,56 @@ export class AuthRoutes {
      *               otp: { type: string }
      *               password: { type: string }
      */
+    /**
+     * @openapi
+     * /api/auth/forgot-password/send-otp:
+     *   post:
+     *     tags: [Auth]
+     *     summary: Send OTP for forgot password
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email]
+     *             properties:
+     *               email: { type: string }
+     * /api/auth/forgot-password/verify-otp:
+     *   post:
+     *     tags: [Auth]
+     *     summary: Verify OTP for forgot password
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email, otp]
+     *             properties:
+     *               email: { type: string }
+     *               otp: { type: string }
+     * /api/auth/forgot-password/reset-password:
+     *   post:
+     *     tags: [Auth]
+     *     summary: Reset password with OTP
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email, otp, newPassword]
+     *             properties:
+     *               email: { type: string }
+     *               otp: { type: string }
+     *               newPassword: { type: string }
+     */
     this.router.post("/login", this.authController.login);
     this.router.post("/register/send-otp", this.authController.sendOtp);
     this.router.post("/register/verify-otp", this.authController.verifyOtpAndRegister);
+    this.router.post("/forgot-password/send-otp", this.authController.forgotPasswordSendOtp);
+    this.router.post("/forgot-password/verify-otp", this.authController.verifyForgotPasswordOtp);
+    this.router.post("/forgot-password/reset-password", this.authController.resetPassword);
   }
 }

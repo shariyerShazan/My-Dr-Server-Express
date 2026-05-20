@@ -15,10 +15,10 @@ export interface IPrescription extends Document {
   patient: IPatient["_id"];
   doctor: IDoctor["_id"];
   title: string;
-  description: string;
+  diagnosis: string;
   fileUrl?: string; // PDF or Image
   medicines?: IMedicine[];
-  instructions?: string;
+  advice?: string;
   nextVisitDate?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -45,10 +45,10 @@ const PrescriptionSchema: Schema = new Schema(
       required: true,
     },
     title: { type: String, required: true },
-    description: { type: String, required: true },
+    diagnosis: { type: String, required: true },
     fileUrl: { type: String },
     medicines: [MedicineSchema],
-    instructions: { type: String },
+    advice: { type: String },
     nextVisitDate: { type: Date },
   },
   { timestamps: true },

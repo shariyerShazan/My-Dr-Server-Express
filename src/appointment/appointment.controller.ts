@@ -311,7 +311,7 @@ export class AppointmentController {
       }
 
       // 6. Create Appointment
-      const appointment = await Appointment.create({
+      const appointmentData: any = {
         doctor: doctorId,
         patient: finalPatientId,
         department: doctor.department,
@@ -320,23 +320,32 @@ export class AppointmentController {
         type,
         symptoms,
         notes,
-        status: AppointmentStatus.PENDING
-      });
+        status: AppointmentStatus.PENDING,
+        adminApprovalStatus: "APPROVED"
+      };
+
+      // Generate meet link immediately for Telemedicine
+      if (type === "TELEMEDICINE") {
+        const roomId = `${String(finalPatientId).slice(-4)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+        appointmentData.meetLink = `https://meet.jit.si/mydr-${roomId}`;
+      }
+
+      const appointment = await Appointment.create(appointmentData);
 
       // Notify Doctor + Admin about New Appointment
       const doctorUser = await Doctor.findById(doctorId).populate("user").lean();
       if (doctorUser && (doctorUser as any).user) {
         socketService.createNotification({
           recipient: String((doctorUser as any).user._id),
-          title: "New Appointment Request",
-          message: `You have a new appointment request for ${dayjs(appointmentDate).format("MMM DD")} at ${timeSlot}.`,
+          title: "New Appointment Booked",
+          message: `You have a new appointment for ${dayjs(appointmentDate).format("MMM DD")} at ${timeSlot}.`,
           type: "APPOINTMENT",
           link: "/dashboard/doctor/appointments"
         });
       }
       socketService.createNotificationForRole("CLINIC_ADMIN", {
         title: "New Appointment Booked",
-        message: `A new appointment has been booked for Dr. ${doctor.firstName}. Support approval required.`,
+        message: `A new appointment has been booked for Dr. ${doctor.firstName}.`,
         type: "APPOINTMENT",
         link: "/clinic/appointments"
       });

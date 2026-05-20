@@ -335,7 +335,7 @@ export class PaymentController {
             { stripeAccountId: account.id },
             { isStripeConnected: true, isStripeAccountVerified: true, stripeOnboardingComplete: true },
           );
-          
+
           // Notify Admin about Doctor Verification
           try {
             const dr = await Doctor.findOne({ stripeAccountId: account.id });
@@ -346,7 +346,7 @@ export class PaymentController {
               type: "DOCTOR_VERIFICATION",
               link: "/clinic/doctors"
             });
-          } catch (e) {}
+          } catch (e) { }
 
         } else if (account.details_submitted) {
           await Doctor.findOneAndUpdate(
