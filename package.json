@@ -6,8 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/index.ts",
+    "build": "tsc",
     "seed:admin": "tsx src/scripts/adminSeeder.ts",
-    "reset:db": "tsx src/scripts/reset_db.ts"
+    "reset:db": "tsx src/scripts/reset_db.ts",
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",

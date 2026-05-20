@@ -1,22 +1,22 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
-import { User, UserRole } from '../models/User.js';
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import dotenv from "dotenv";
+import { User, UserRole } from "../models/User.js";
 
 dotenv.config();
 
 const seedAdmin = async () => {
   try {
-    const uri = process.env.DATABASE_URL || 'mongodb://localhost:27017/my-dr';
+    const uri = process.env.DATABASE_URL || "mongodb://localhost:27017/my-dr";
     await mongoose.connect(uri);
-    console.log('Connected to MongoDB for seeding...');
+    console.log("Connected to MongoDB for seeding...");
 
-    const adminEmail = 'admin@gmail.com';
-    const authPass = 'admin@gmail.com';
+    const adminEmail = process.env.ADMIN_EMAIL!;
+    const authPass = process.env.ADMIN_PASS!;
 
     const existingAdmin = await User.findOne({ email: adminEmail });
     if (existingAdmin) {
-      console.log('CLINIC_ADMIN already exists in database.');
+      console.log("CLINIC_ADMIN already exists in database.");
       process.exit(0);
     }
 
@@ -30,10 +30,10 @@ const seedAdmin = async () => {
       isActive: true,
     });
 
-    console.log('✅ Successfully seeded CLINIC_ADMIN: ' + admin.email);
+    console.log("✅ Successfully seeded CLINIC_ADMIN: " + admin.email);
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error seeding admin:', error);
+    console.error("❌ Error seeding admin:", error);
     process.exit(1);
   }
 };

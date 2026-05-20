@@ -7,36 +7,41 @@ import { Patient } from "../models/Patient.js";
 import { sendMail } from "../utils/mailSender.js";
 
 export class AuthController {
-  
-  public async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public async login(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { email, password } = req.body;
 
       const user = await User.findOne({ email });
-      
+
       if (!user) {
-        res.status(401).json({ success: false, message: "Invalid credentials" });
+        res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
         return;
       }
 
       const isMatch = await bcrypt.compare(password, user.passwordHash);
       if (!isMatch) {
-         res.status(401).json({ success: false, message: "Invalid credentials" });
-         return;
+        res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
+        return;
       }
-      
+
       if (!user.isActive) {
-         res.status(403).json({ success: false, message: "Account is suspended" });
-         return;
+        res
+          .status(403)
+          .json({ success: false, message: "Account is suspended" });
+        return;
       }
-      
+
       const secret = process.env.JWT_SECRET || "fallback_secret";
-      
-      const token = jwt.sign(
-        { userId: user._id }, 
-        secret, 
-        { expiresIn: "7d" }
-      );
+
+      const token = jwt.sign({ userId: user._id }, secret, { expiresIn: "7d" });
 
       res.status(200).json({
         success: true,
@@ -44,34 +49,45 @@ export class AuthController {
         user: {
           _id: user._id,
           email: user.email,
-          role: user.role
-        }
+          role: user.role,
+        },
       });
     } catch (error) {
       next(error);
     }
   }
 
-  public async sendOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public async sendOtp(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { email } = req.body;
       const existingUser = await User.findOne({ email });
       if (existingUser) {
-        res.status(400).json({ success: false, message: "Email is already registered. Please login." });
+        res
+          .status(400)
+          .json({
+            success: false,
+            message: "Email is already registered. Please login.",
+          });
         return;
       }
 
       // Generate 6-digit OTP
-      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      
+      const generatedOtp = Math.floor(
+        100000 + Math.random() * 900000,
+      ).toString();
+
       // Expire in 10 minutes
       const expiresAt = new Date(Date.now() + 10 * 60000);
-      
+
       // Map to DB
       await Otp.findOneAndUpdate(
-         { email },
-         { otp: generatedOtp, expiresAt },
-         { upsert: true, new: true }
+        { email },
+        { otp: generatedOtp, expiresAt },
+        { upsert: true, new: true },
       );
 
       const html = `
@@ -83,110 +99,139 @@ export class AuthController {
 
       await sendMail(email, "Your Registration OTP Code", html);
 
-      res.status(200).json({ success: true, message: "OTP sent successfully to email" });
+      res
+        .status(200)
+        .json({ success: true, message: "OTP sent successfully to email" });
     } catch (error) {
       next(error);
     }
   }
 
-  public async verifyOtpAndRegister(req: Request, res: Response, next: NextFunction): Promise<void> {
-     try {
-       const { email, otp, password, firstName, lastName, dateOfBirth, contactNumber, gender, address, bloodGroup } = req.body;
-       
-       const otpRecord = await Otp.findOne({ email });
-       if (!otpRecord) {
-         res.status(400).json({ success: false, message: "OTP not found or expired. Request a new one." });
-         return;
-       }
+  public async verifyOtpAndRegister(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const {
+        email,
+        otp,
+        password,
+        firstName,
+        lastName,
+        dateOfBirth,
+        contactNumber,
+        gender,
+        address,
+        bloodGroup,
+      } = req.body;
 
-       if (otpRecord.otp !== otp) {
-         res.status(400).json({ success: false, message: "Invalid OTP code." });
-         return;
-       }
+      const otpRecord = await Otp.findOne({ email });
+      if (!otpRecord) {
+        res
+          .status(400)
+          .json({
+            success: false,
+            message: "OTP not found or expired. Request a new one.",
+          });
+        return;
+      }
 
-       if (new Date() > otpRecord.expiresAt) {
-         res.status(400).json({ success: false, message: "OTP has expired." });
-         return;
-       }
+      if (otpRecord.otp !== otp) {
+        res.status(400).json({ success: false, message: "Invalid OTP code." });
+        return;
+      }
 
-       // Delete the OTP as it's been successfully verified
-       await Otp.findByIdAndDelete(otpRecord._id);
+      if (new Date() > otpRecord.expiresAt) {
+        res.status(400).json({ success: false, message: "OTP has expired." });
+        return;
+      }
 
-       const salt = await bcrypt.genSalt(10);
-       const passwordHash = await bcrypt.hash(password, salt);
+      // Delete the OTP as it's been successfully verified
+      await Otp.findByIdAndDelete(otpRecord._id);
 
-       const user = await User.create({
-         email,
-         passwordHash,
-         role: UserRole.PATIENT, // default role for self-service registration
-         isActive: true
-       });
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
 
-       // Create default patient profile
-       await Patient.create({
-         user: user._id,
-         firstName: firstName || "Unknown",
-         lastName: lastName || "Unknown",
-         dateOfBirth: dateOfBirth || new Date(),
-         gender: gender || "OTHER",
-         contactNumber: contactNumber || "0000000000",
-         address: address || "",
-         bloodGroup: bloodGroup || ""
-       });
+      const user = await User.create({
+        email,
+        passwordHash,
+        role: UserRole.PATIENT, // default role for self-service registration
+        isActive: true,
+      });
+
+      // Create default patient profile
+      await Patient.create({
+        user: user._id,
+        firstName: firstName || "Unknown",
+        lastName: lastName || "Unknown",
+        dateOfBirth: dateOfBirth || new Date(),
+        gender: gender || "OTHER",
+        contactNumber: contactNumber || "0000000000",
+        address: address || "",
+        bloodGroup: bloodGroup || "",
+      });
 
       const secret = process.env.JWT_SECRET || "fallback_secret";
-      const token = jwt.sign(
-        { userId: user._id }, 
-        secret, 
-        { expiresIn: "7d" }
-      );
+      const token = jwt.sign({ userId: user._id }, secret, { expiresIn: "7d" });
 
-       res.status(201).json({
-         success: true,
-         message: "Registration successful",
-         token,
-         user: {
-           _id: user._id,
-           email: user.email,
-           role: user.role
-         }
-       });
+      res.status(201).json({
+        success: true,
+        message: "Registration successful",
+        token,
+        user: {
+          _id: user._id,
+          email: user.email,
+          role: user.role,
+        },
+      });
 
-       // Notify Admin
-       try {
-         const { socketService } = await import("../config/socket.js");
-         socketService.createNotificationForRole("CLINIC_ADMIN", {
-           title: "New Patient Registered",
-           message: `${firstName} ${lastName} has joined the platform.`,
-           type: "USER_REGISTRATION",
-           link: "/clinic/overview" // Or relevant admin page
-         });
-       } catch (e) {
-         console.error("Socket notification failed", e);
-       }
-     } catch (error) {
-        next(error);
-     }
+      // Notify Admin
+      try {
+        const { socketService } = await import("../config/socket.js");
+        socketService.createNotificationForRole("CLINIC_ADMIN", {
+          title: "New Patient Registered",
+          message: `${firstName} ${lastName} has joined the platform.`,
+          type: "USER_REGISTRATION",
+          link: "/clinic/overview", // Or relevant admin page
+        });
+      } catch (e) {
+        console.error("Socket notification failed", e);
+      }
+    } catch (error) {
+      next(error);
+    }
   }
 
-  public async forgotPasswordSendOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public async forgotPasswordSendOtp(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { email } = req.body;
       const user = await User.findOne({ email });
-      
+
       if (!user) {
-        res.status(404).json({ success: false, message: "No account found with this email." });
+        res
+          .status(404)
+          .json({
+            success: false,
+            message: "No account found with this email.",
+          });
         return;
       }
 
       // Generate 6-digit OTP
-      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      const generatedOtp = Math.floor(
+        100000 + Math.random() * 900000,
+      ).toString();
       const expiresAt = new Date(Date.now() + 10 * 60000); // 10 mins
 
       await Otp.findOneAndUpdate(
-         { email },
-         { otp: generatedOtp, expiresAt },
-         { upsert: true, new: true }
+        { email },
+        { otp: generatedOtp, expiresAt },
+        { upsert: true, new: true },
       );
 
       const html = `
@@ -200,19 +245,27 @@ export class AuthController {
 
       await sendMail(email, "Reset Your Password - MyDr OTP", html);
 
-      res.status(200).json({ success: true, message: "OTP sent to your email" });
+      res
+        .status(200)
+        .json({ success: true, message: "OTP sent to your email" });
     } catch (error) {
       next(error);
     }
   }
 
-  public async verifyForgotPasswordOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public async verifyForgotPasswordOtp(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { email, otp } = req.body;
       const otpRecord = await Otp.findOne({ email, otp });
 
       if (!otpRecord) {
-        res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+        res
+          .status(400)
+          .json({ success: false, message: "Invalid or expired OTP." });
         return;
       }
 
@@ -221,19 +274,30 @@ export class AuthController {
         return;
       }
 
-      res.status(200).json({ success: true, message: "OTP verified. You can now reset your password." });
+      res
+        .status(200)
+        .json({
+          success: true,
+          message: "OTP verified. You can now reset your password.",
+        });
     } catch (error) {
       next(error);
     }
   }
 
-  public async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public async resetPassword(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { email, otp, newPassword } = req.body;
-      
+
       const otpRecord = await Otp.findOne({ email, otp });
       if (!otpRecord) {
-        res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+        res
+          .status(400)
+          .json({ success: false, message: "Invalid or expired OTP." });
         return;
       }
 
@@ -250,7 +314,12 @@ export class AuthController {
       // Delete OTP after successful reset
       await Otp.findByIdAndDelete(otpRecord._id);
 
-      res.status(200).json({ success: true, message: "Password reset successful. You can now login." });
+      res
+        .status(200)
+        .json({
+          success: true,
+          message: "Password reset successful. You can now login.",
+        });
     } catch (error) {
       next(error);
     }
