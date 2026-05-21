@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import { User, UserRole } from "../models/User.js";
 
 dotenv.config();
-
+//
 const seedAdmin = async () => {
   try {
     const uri = process.env.DATABASE_URL || "mongodb://localhost:27017/my-dr";
